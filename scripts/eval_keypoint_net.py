@@ -15,9 +15,12 @@ from termcolor import colored
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
+import context
+
 from kp2d.datasets.patches_dataset import PatchesDataset
 from kp2d.evaluation.evaluate import evaluate_keypoint_net
 from kp2d.networks.keypoint_net import KeypointNet
+
 
 
 def main():

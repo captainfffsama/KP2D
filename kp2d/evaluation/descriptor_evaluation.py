@@ -12,7 +12,9 @@ from kp2d.utils.keypoints import warp_keypoints
 
 
 def select_k_best(points, descriptors, k):
-    """ Select the k most probable points (and strip their probability).
+    """ 
+    就是根据点的置信度,选取置信度最大的前K个
+    Select the k most probable points (and strip their probability).
     points has shape (num_points, 3) where the last coordinate is the probability.
 
     Parameters
@@ -41,6 +43,7 @@ def select_k_best(points, descriptors, k):
 
 def keep_shared_points(keypoints, descriptors, H, shape, keep_k_points=1000):
     """
+    去除转出去的点,保留置信度最大的前K个点用来最后做匹配
     Compute a list of keypoints from the map, filter the list of points by keeping
     only the points that once mapped by H are still inside the shape of the map
     and keep at most 'keep_k_points' keypoints in the image.
@@ -67,7 +70,9 @@ def keep_shared_points(keypoints, descriptors, H, shape, keep_k_points=1000):
     """
     
     def keep_true_keypoints(points, descriptors, H, shape):
-        """ Keep only the points whose warped coordinates by H are still inside shape. """
+        """ Keep only the points whose warped coordinates by H are still inside shape. 
+            使用gt的变换对点进行变化,把转出去的点去掉
+        """
         warped_points = warp_keypoints(points[:, [1, 0]], H)
         warped_points[:, [0, 1]] = warped_points[:, [1, 0]]
         mask = (warped_points[:, 0] >= 0) & (warped_points[:, 0] < shape[0]) &\
