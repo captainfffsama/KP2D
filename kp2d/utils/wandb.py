@@ -8,7 +8,6 @@ import numpy as np
 from PIL import Image
 
 import wandb
-from wandb.git_repo import GitRepo
 
 
 class WandBLogger:
@@ -57,14 +56,6 @@ class WandBLogger:
                        'description': description,
                        'name': ''})
 
-        # Update wandb config params with git repo details
-        try:
-            self._repo = wandb.git_repo.GitRepo(root=pwd)
-            params.update({'ip': socket.gethostbyname(socket.gethostname()),
-                           'last_commit': self._repo.last_commit,
-                           'branch': self._repo.branch})
-        except:
-            print('Failed to fetch git repo details.')
         self._wandb_logger = wandb.init(config=params, allow_val_change=True)
         wandb.run.save()
 

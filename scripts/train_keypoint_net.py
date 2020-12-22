@@ -9,24 +9,31 @@ import torch
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.utils.data import ConcatDataset, DataLoader
+from torch import distributed as dist
 from tqdm import tqdm
 
-import horovod.torch as hvd
+import context
+
+
 from kp2d.datasets.patches_dataset import PatchesDataset
 from kp2d.evaluation.evaluate import evaluate_keypoint_net
 from kp2d.models.KeypointNetwithIOLoss import KeypointNetwithIOLoss
 from kp2d.utils.config import parse_train_file
-from kp2d.utils.horovod import hvd_init, local_rank, rank, world_size
 from kp2d.utils.logging import SummaryWriter, printcolor
 from train_keypoint_net_utils import (_set_seeds, sample_to_cuda,
-                                      setup_datasets_and_dataloaders)
+                                      setup_datasets_and_dataloaders,get_dist_info)
 
 
 def parse_args():
     """Parse arguments for training script"""
     parser = argparse.ArgumentParser(description='KP2D training script')
     parser.add_argument('file', type=str, help='Input file (.ckpt or .yaml)')
+    parser.add_argument('--local_rank',default=0,type=int, help='node rank for distributed training')
+    parser.add_argument('--launcher',choices=['none','pytorch'],default='none',help='job launcher')
     args = parser.parse_args()
+    if 'LOCAL_RANK' not in os.environ:
+        os.environ['LOCAL_RANK'] =  str(args.local_rank)
+
     assert args.file.endswith(('.ckpt', '.yaml')), \
         'You need to provide a .ckpt of .yaml file'
     return args
@@ -47,7 +54,8 @@ def model_submodule(model):
     the model itself. """
     return model.module if hasattr(model, 'module') else model
 
-def main(file):
+
+def main(args):
     """
     KP2D training script.
 
@@ -58,47 +66,52 @@ def main(file):
         **.yaml** for a yacs configuration file or a
         **.ckpt** for a pre-trained checkpoint file.
     """
+    file=args.file
+    local_rank=args.local_rank
     # Parse config
     config = parse_train_file(file)
     print(config)
     print(config.arch)
 
-    # Initialize horovod
-    hvd_init()
-    n_threads = int(os.environ.get("OMP_NUM_THREADS", 1))
-    torch.set_num_threads(n_threads)    
     torch.backends.cudnn.benchmark = True
     # torch.backends.cudnn.deterministic = True
 
-    if world_size() > 1:
-        printcolor('-'*18 + 'DISTRIBUTED DATA PARALLEL ' + '-'*18, 'cyan')
-        device_id = local_rank()
-        torch.cuda.set_device(device_id)
-    else:
+    if args.launcher == 'none':
         printcolor('-'*25 + 'SINGLE GPU ' + '-'*25, 'cyan')
+        distributed = False
+        printcolor('-'*25 + ' MODEL PARAMS ' + '-'*25)
+        printcolor(config.model.params, 'red')
+    else:
+        printcolor('-'*18 + 'DISTRIBUTED DATA PARALLEL ' + '-'*18, 'cyan')
+        distributed = True
+        rank=int(os.environ['RANK'])
+        num_gpus=torch.cuda.device_count()
+        torch.cuda.set_device(rank%num_gpus)
+        dist.init_process_group(backend='nccl')
+        rank,world_size=get_dist_info()
+        if 0==rank:
+            printcolor('-'*25 + ' MODEL PARAMS ' + '-'*25)
+            printcolor(config.model.params, 'red')
     
     if config.arch.seed is not None:
         _set_seeds(config.arch.seed)
-
-    if rank() == 0:
-        printcolor('-'*25 + ' MODEL PARAMS ' + '-'*25)
-        printcolor(config.model.params, 'red')
 
     # Setup model and datasets/dataloaders
     model = KeypointNetwithIOLoss(**config.model.params)
     train_dataset, train_loader = setup_datasets_and_dataloaders(config.datasets)
     printcolor('({}) length: {}'.format("Train", len(train_dataset)))
 
-    model = model.cuda()
+    if distributed:
+        model = torch.nn.parallel.DistributedDataParallel(model.cuda(),device_ids=[args.local_rank,])
+    else:
+        model = model.cuda()
     optimizer = optim.Adam(model.optim_params)
-    compression = hvd.Compression.none  # or hvd.Compression.fp16
-    optimizer = hvd.DistributedOptimizer(optimizer, named_parameters=model.named_parameters(), compression=compression)
 
     # checkpoint model
     log_path = os.path.join(config.model.checkpoint_path, 'logs')
     os.makedirs(log_path, exist_ok=True)
     
-    if rank() == 0:
+    if distributed and 0==get_dist_info()[0]:
         if not config.wandb.dry_run:
             summary = SummaryWriter(log_path,
                                     config,
@@ -137,8 +150,9 @@ def evaluation(config, completed_epoch, model, summary):
     model.training = False
 
     use_color = config.model.params.use_color
+    rank,world_size=get_dist_info()
 
-    if rank() == 0:
+    if rank == 0:
         eval_params = [{'res': (320, 240), 'top_k': 300}]
         for params in eval_params:
             hp_dataset = PatchesDataset(root_dir=config.datasets.val.path, use_color=use_color, output_shape=params['res'], type='a')
@@ -176,7 +190,7 @@ def evaluation(config, completed_epoch, model, summary):
             summary.commit_log()
 
     # Save checkpoint
-    if config.model.save_checkpoint and rank() == 0:
+    if config.model.save_checkpoint and rank == 0:
         current_model_path = os.path.join(config.model.checkpoint_path, 'model.ckpt')
         printcolor('\nSaving model (epoch:{}) at {}'.format(completed_epoch, current_model_path), 'green')
         torch.save(
@@ -188,6 +202,7 @@ def evaluation(config, completed_epoch, model, summary):
 
 def train(config, train_loader, model, optimizer, epoch, summary):
     # Set to train mode
+    rank,world_size=get_dist_info()
     model.train()
     if hasattr(train_loader.sampler, "set_epoch"):
         train_loader.sampler.set_epoch(epoch)
@@ -199,10 +214,10 @@ def train(config, train_loader, model, optimizer, epoch, summary):
 
     pbar = tqdm(enumerate(train_loader, 0),
                 unit=' images',
-                unit_scale=config.datasets.train.batch_size * hvd.size(),
+                unit_scale=config.datasets.train.batch_size * world_size,
                 total=len(train_loader),
                 smoothing=0,
-                disable=(hvd.rank() > 0))
+                disable=(rank > 0))
     running_loss = running_recall = grad_norm_disp = grad_norm_pose = grad_norm_keypoint = 0.0
     train_progress = float(epoch) / float(config.arch.epochs)
 
@@ -214,7 +229,6 @@ def train(config, train_loader, model, optimizer, epoch, summary):
         optimizer.zero_grad()
         data_cuda = sample_to_cuda(data)
         loss, recall = model(data_cuda)
-        loss = hvd.allreduce(loss.mean(), average=True, name='loss')
 
         # compute gradient
         loss.backward()
@@ -225,7 +239,7 @@ def train(config, train_loader, model, optimizer, epoch, summary):
         # SGD step
         optimizer.step()
         # pretty progress bar
-        if hvd.rank() == 0:
+        if rank== 0:
             pbar.set_description('Train [ E {}, T {:d}, R {:.4f}, R_Avg {:.4f}, L {:.4f}, L_Avg {:.4f}]'.format(
                 epoch, epoch * config.datasets.train.repeat, recall, running_recall / (i + 1), float(loss),
                 float(running_loss) / (i + 1)))
@@ -254,4 +268,4 @@ def train(config, train_loader, model, optimizer, epoch, summary):
 
 if __name__ == '__main__':
     args = parse_args()
-    main(args.file)
+    main(args)

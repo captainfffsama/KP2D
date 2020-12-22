@@ -46,7 +46,6 @@ def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), to
             score_1, coord_1, desc1 = keypoint_net(image)
             score_2, coord_2, desc2 = keypoint_net(warped_image)
             B, _, Hc, Wc = desc1.shape
-            import ipdb; ipdb.set_trace()
 
             # Scores & Descriptors
             score_1 = torch.cat([coord_1, score_1], dim=1).view(3, -1).t().cpu().numpy()
@@ -70,7 +69,6 @@ def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), to
                     'desc': desc1,
                     'warped_desc': desc2}
             
-            import ipdb; ipdb.set_trace()
             # Compute repeatabilty and localization error
             _, _, rep, loc_err = compute_repeatability(data, keep_k_points=top_k, distance_thresh=3)
             repeatability.append(rep)

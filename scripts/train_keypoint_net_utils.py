@@ -6,15 +6,31 @@ import random
 import numpy as np
 import torch
 import torch.utils.data.distributed
+import torch.distributed as dist 
 from torch.utils.data import ConcatDataset, DataLoader
 
-import horovod.torch as hvd
 from kp2d.datasets.augmentations import (ha_augment_sample, resize_sample,
                                          spatial_augment_sample,
                                          to_tensor_sample)
 from kp2d.datasets.coco import COCOLoader
-from kp2d.utils.horovod import rank, world_size
 
+TORCH_VERSION=torch.__version__
+
+def get_dist_info():
+    if TORCH_VERSION < '1.0':
+        initialized = dist._initialized
+    else:
+        if dist.is_available():
+            initialized = dist.is_initialized()
+        else:
+            initialized = False
+    if initialized:
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+    else:
+        rank = 0
+        world_size = 1
+    return rank, world_size
 
 def sample_to_cuda(data):
     if isinstance(data, str):
@@ -63,6 +79,7 @@ def setup_datasets_and_dataloaders(config):
         """Worker init fn to fix the seed of the workers"""
         _set_seeds(42 + worker_id)
 
+    rank,world_size=get_dist_info()
     data_transforms = image_transforms(shape=config.augmentation.image_shape, jittering=config.augmentation.jittering)
     train_dataset = COCOLoader(config.train.path, data_transform=data_transforms['train'])
     # Concatenate dataset to produce a larger one
@@ -70,16 +87,16 @@ def setup_datasets_and_dataloaders(config):
         train_dataset = ConcatDataset([train_dataset for _ in range(config.train.repeat)])
 
     # Create loaders
-    if world_size() > 1:
+    if world_size > 1:
         sampler = torch.utils.data.distributed.DistributedSampler(
-            train_dataset, num_replicas=world_size(), rank=rank())
+            train_dataset, num_replicas=world_size, rank=rank)
     else:
         sampler = None
 
     train_loader = DataLoader(train_dataset,
                               batch_size=config.train.batch_size,
                               pin_memory=True,
-                              shuffle=not (world_size() > 1),
+                              shuffle=not (world_size > 1),
                               num_workers=config.train.num_workers,
                               worker_init_fn=_worker_init_fn,
                               sampler=sampler)
