@@ -1,5 +1,14 @@
 # Neural Outlier Rejection for Self-Supervised Keypoint Learning
 
+**This project just fork from https://github.com/TRI-ML/KP2D,and remove docker and horovod rely. you can use conda test this code**   
+change the `prefix` in the *environment.yaml*,then use 
+```python
+conda env create -f environment.yaml
+```
+install conda environment.
+
+Code have been test in Ubuntu 18.04, GTX2070,CUDA 10.01
+
 ## Overview
 ![](media/imgs/diagram_architecture.png)
 - **IO-Net:** A novel proxy task for the self-supervision of keypoint description. 
