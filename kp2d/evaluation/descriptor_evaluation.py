@@ -73,6 +73,7 @@ def keep_shared_points(keypoints, descriptors, H, shape, keep_k_points=1000):
         """ Keep only the points whose warped coordinates by H are still inside shape. 
             使用gt的变换对点进行变化,把转出去的点去掉
         """
+        # TODO:这里的点xy交换很奇怪,按理来说不符合公式
         warped_points = warp_keypoints(points[:, [1, 0]], H)
         warped_points[:, [0, 1]] = warped_points[:, [1, 0]]
         mask = (warped_points[:, 0] >= 0) & (warped_points[:, 0] < shape[0]) &\
@@ -80,7 +81,8 @@ def keep_shared_points(keypoints, descriptors, H, shape, keep_k_points=1000):
         return points[mask, :], descriptors[mask, :]
 
     selected_keypoints, selected_descriptors = keep_true_keypoints(keypoints, descriptors, H, shape)
-    selected_keypoints, selected_descriptors = select_k_best(selected_keypoints, selected_descriptors, keep_k_points)
+    selected_keypoints, selected_descriptors = select_k_best(
+        selected_keypoints, selected_descriptors, keep_k_points)
     return selected_keypoints, selected_descriptors
 
 
@@ -116,6 +118,7 @@ def compute_matching_score(data, keep_k_points=1000):
     real_H = data['homography']
 
     # Filter out predictions
+    # 注意这里把x,y互换了
     keypoints = data['prob'][:, :2].T
     keypoints = keypoints[::-1]
     prob = data['prob'][:, 2]
@@ -247,7 +250,9 @@ def compute_homography(data, keep_k_points=1000):
                         [shape[0] - 1, 0, 1],
                         [shape[0] - 1, shape[1] - 1, 1]])
     real_warped_corners = np.dot(corners, np.transpose(real_H))
+    # 这里点经过变换之后,本来用来齐次对齐额外添加的1就不再是1了,因此需要统一除最后一位,这样才是新的视角座标系下的座标
     real_warped_corners = real_warped_corners[:, :2] / real_warped_corners[:, 2:]
+
     warped_corners = np.dot(corners, np.transpose(H))
     warped_corners = warped_corners[:, :2] / warped_corners[:, 2:]
     

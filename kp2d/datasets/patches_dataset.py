@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import cv2
+import ipdb
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -88,6 +89,9 @@ class PatchesDataset(Dataset):
         sample = {'image': image, 'warped_image': warped_image, 'homography': homography, 'index' : idx}
 
         # Apply transformations
+        '''
+        H_{new}=S_{b_scale} H S^{-1}_{a_scale}
+        '''
         if self.output_shape is not None:
             sample['homography'] = self.scale_homography(sample['homography'],
                                                          sample['image'].shape[:2][::-1],
