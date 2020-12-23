@@ -1,3 +1,5 @@
+pyrightconfig.json
+test/
 data/
 .vscode/
 # Byte-compiled / optimized / DLL files
