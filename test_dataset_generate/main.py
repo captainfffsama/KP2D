@@ -9,21 +9,28 @@ import sys
 
 sys.path.insert(0,os.path.abspath(os.path.join(os.path.dirname(__file__),'..')))
 import random
+from concurrent import futures
 
 import cv2
 import albumentations as A
 import numpy as np
+from tqdm import tqdm
 
 import test_dataset_generate.homo_config as cfg
 
-from test_tools import pdb_show_img
-
-from ipdb import set_trace
-
 def get_transform():
     transform = A.Compose([
-        A.RandomBrightnessContrast(p=0.2),
-    ])
+        A.OneOf([
+                A.RandomSnow(),
+                A.RandomRain(slant_lower=-10, slant_upper=10, drop_width=1, drop_color=(225, 198, 203), blur_value=2, brightness_coefficient=0.95, rain_type=None,p=0.5),
+                A.RandomFog(always_apply=False, p=0.3, fog_coef_lower=0.3, fog_coef_upper=0.78, alpha_coef=0.08)
+            ],p=0.7),
+        A.OneOf([
+            A.RandomBrightnessContrast(always_apply=False, p=0.8, brightness_limit=(-0.36, 0.39), contrast_limit=(-0.68, 0.56), brightness_by_max=True),
+            A.RandomGamma(always_apply=False, p=0.5, gamma_limit=(80, 120), eps=1e-07),
+        ],p=0.8),
+        A.CLAHE(always_apply=False, p=0.5, clip_limit=(1, 4), tile_grid_size=(8, 8)),
+    ],p=0.9)
     return transform
 
 def get_all_jpg_path(file_dir:str,filter_:tuple=('.jpg',)) -> list:
@@ -34,7 +41,7 @@ def get_all_jpg_path(file_dir:str,filter_:tuple=('.jpg',)) -> list:
                 if os.path.splitext(filename)[1] in filter_ ]
     elif os.path.isfile(file_dir):
         with open(file_dir,'r') as fr:
-            file_list=[x.strip() for x in fr.readlines if os.path.splitext(x.strip())[-1] in filter_]
+            file_list=[x.strip() for x in fr.readlines() if os.path.splitext(x.strip())[-1] in filter_]
         return file_list
     else:
         raise FileNotFoundError('{} have no image in {}'.format(file_dir,filter_))
@@ -59,7 +66,6 @@ def generat_one_group(ori_img_path:str,transform):
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
 
-    save_img=ori_img[int(h/7):int(h*6/7),int(w/7):int(w*6/7)]
     cv2.imwrite(os.path.join(save_dir,'1.jpg'),img=ori_img[int(h/7):int(h*6/7),int(w/7):int(w*6/7)])
 
     for idx in range(2,cfg.img_num_per_group+2):
@@ -73,8 +79,8 @@ def generat_one_group(ori_img_path:str,transform):
         final_warp_img=cv2.warpPerspective(warp_img,H,(w,h))
 
         #保存结果
-        np.savetxt(os.path.join(save_dir,'H_1_{}'.format(idx+1)),H,delimiter=' ')
-        cv2.imwrite(os.path.join(save_dir,'{}.jpg'.format(idx+1)),img=final_warp_img[int(h/7):int(h*6/7),int(w/7):int(w*6/7)])
+        np.savetxt(os.path.join(save_dir,'H_1_{}'.format(idx)),H,delimiter=' ')
+        cv2.imwrite(os.path.join(save_dir,'{}.jpg'.format(idx)),img=final_warp_img[int(h/7):int(h*6/7),int(w/7):int(w*6/7)])
         
 
 def main():
@@ -90,8 +96,10 @@ def main():
 
     transform=get_transform()
     
-    for jpg in jpg_list:
-        generat_one_group(jpg,transform)
+    with futures.ProcessPoolExecutor() as exec:
+        tasks=[exec.submit(generat_one_group,jpg,transform) for jpg in jpg_list]
+        for task in tqdm(futures.as_completed(tasks),total=len(jpg_list)):
+            result=task.result()
 
 if __name__=="__main__":
     main()
