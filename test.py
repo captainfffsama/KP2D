@@ -12,7 +12,7 @@ import numpy as np
 from kp2d.datasets.patches_dataset import PatchesDataset
 from infer_demo import Homographier,KeyPointModel
 
-def get_orb(im1_path,im2_path):
+def get_kp(im1_path,im2_path,features_type='orb'):
     im1=cv2.imread(im1_path,cv2.IMREAD_COLOR)
     im2=cv2.imread(im2_path,cv2.IMREAD_COLOR)
 
@@ -20,11 +20,16 @@ def get_orb(im1_path,im2_path):
     im1Gray = cv2.cvtColor(im1, cv2.COLOR_BGR2GRAY)
     im2Gray = cv2.cvtColor(im2, cv2.COLOR_BGR2GRAY)
 
+    if 'orb'==features_type:
     # Detect ORB features and compute descriptors.
-    orb = cv2.ORB_create(1000)
-    keypoints1, descriptors1 = orb.detectAndCompute(im1Gray, None)
+        detector = cv2.ORB_create(1000)
+    elif 'sift'==features_type:
+        detector = cv2.SIFT_create(1000)
+    else:
+        raise ValueError()
+    keypoints1, descriptors1 = detector.detectAndCompute(im1Gray, None)
     kp1_array= np.array([list(kp.pt) for kp in keypoints1])
-    keypoints2, descriptors2 = orb.detectAndCompute(im2Gray, None)
+    keypoints2, descriptors2 = detector.detectAndCompute(im2Gray, None)
     kp2_array= np.array([list(kp.pt) for kp in keypoints2])
     return kp1_array, descriptors1,kp2_array,descriptors2
 

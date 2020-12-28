@@ -50,7 +50,6 @@ def main():
     ]
 
     for params in eval_params:
-        import ipdb; ipdb.set_trace()
         hp_dataset = PatchesDataset(root_dir=args.input_dir, use_color=True,
                                     output_shape=params['res'], type='a')
         data_loader = DataLoader(hp_dataset,
