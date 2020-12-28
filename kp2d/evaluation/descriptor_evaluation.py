@@ -148,10 +148,13 @@ def compute_matching_score(data, keep_k_points=1000):
     m_warped_keypoints = warped_keypoints[matches_idx, :]
 
     true_warped_keypoints = warp_keypoints(m_warped_keypoints[:, [1, 0]], np.linalg.inv(real_H))[:,::-1]
+    #在图片范围内的点
     vis_warped = np.all((true_warped_keypoints >= 0) & (true_warped_keypoints <= (np.array(shape)-1)), axis=-1)
+    #将预测点反变换回原始图片座标系中的点,然后计算两者距离
     norm1 = np.linalg.norm(true_warped_keypoints - m_keypoints, axis=-1)
 
     correct1 = (norm1 < 3)
+    #计算出在图片范围内且距离误差小于3的点的数量
     count1 = np.sum(correct1 * vis_warped)
     score1 = count1 / np.maximum(np.sum(vis_warped), 1.0)
 
@@ -249,6 +252,7 @@ def compute_homography(data, keep_k_points=1000):
                         [0, shape[1] - 1, 1],
                         [shape[0] - 1, 0, 1],
                         [shape[0] - 1, shape[1] - 1, 1]])
+    # NOTE:注意这里是hw不是wh,所以H被转置了
     real_warped_corners = np.dot(corners, np.transpose(real_H))
     # 这里点经过变换之后,本来用来齐次对齐额外添加的1就不再是1了,因此需要统一除最后一位,这样才是新的视角座标系下的座标
     real_warped_corners = real_warped_corners[:, :2] / real_warped_corners[:, 2:]

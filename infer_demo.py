@@ -15,7 +15,7 @@ from kp2d.networks.keypoint_net import KeypointNet
 from kp2d.utils.image import to_color_normalized
 from kp2d.evaluation.descriptor_evaluation import select_k_best
 
-# FIXME:注意这里KeyPointModel岁图片进行缩放了,而实际的算出来的H 应该缩放回去
+# NOTE:注意这里KeyPointModel岁图片进行缩放了,而实际的算出来的H 应该缩放回去
 # H_o=S^(-1)_B H_{current} S_A
 # 这里若测试图片不是 resize大小  就需要变换回去
 
@@ -36,10 +36,9 @@ class KeyPointModel(object):
         self.keypoint_net.training = False
 
 
-        self.eval_params=dict(res=(640,480),top_k=1000)
+        self.eval_params=dict(res=(640,480),top_k=keep_k_points)
 
         self.conf_threshold = conf_thresh
-        self.keep_k_points= keep_k_points
 
         self.transforms=transforms.ToTensor()
     
@@ -78,7 +77,7 @@ class KeyPointModel(object):
                     缩放矩阵,应该是一个 3x3 的对角阵.
         '''
         points=np.insert(points,2,1,axis=1)
-        new_points=points@scale_rate
+        new_points=points@scale_rate.T
         return new_points[:,:2]
 
     def __call__(self,image_path,warped_image_path):
@@ -123,8 +122,8 @@ class KeyPointModel(object):
             
             desc = desc1
             warped_desc = desc2
-            keypoints,desc = select_k_best(keypoints, desc, self.keep_k_points)
-            warped_keypoints, warped_desc = select_k_best(warped_keypoints, warped_desc, self.keep_k_points)
+            keypoints,desc = select_k_best(keypoints, desc, self.eval_params['top_k'])
+            warped_keypoints, warped_desc = select_k_best(warped_keypoints, warped_desc, self.eval_params['top_k'])
             fix_kps=self.scale_point(keypoints[:,:2],img_t_scale_H)
             fix_wkps=self.scale_point(warped_keypoints[:,:2],warped_img_t_H)
         return fix_kps,desc,fix_wkps,warped_desc

@@ -96,6 +96,7 @@ def compute_repeatability(data, keep_k_points=300, distance_thresh=3):
     true_warped_keypoints = np.expand_dims(true_warped_keypoints, 1)
     warped_keypoints = np.expand_dims(warped_keypoints, 0)
     # shapes are broadcasted to N1 x N2 x 2:
+    # 这里计算预测点到所有gt点的距离,然后取最小的距离视为是对应的点
     norm = np.linalg.norm(true_warped_keypoints - warped_keypoints, ord=None, axis=2)
     count1 = 0
     count2 = 0
