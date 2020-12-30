@@ -7,6 +7,8 @@
 
 from pathlib import Path
 
+import ipdb
+
 import context
 
 import numpy as np
@@ -57,7 +59,7 @@ class EvalDataset(Dataset):
             if self.type == 'v' and path.stem[0] != 'v':
                 continue
             num_images = 5
-            file_ext = '.jpg'
+            file_ext = '.ppm'
             for i in range(2, 2 + num_images):
                 image_paths.append(str(Path(path, "1" + file_ext)))
                 warped_image_paths.append(str(Path(path, str(i) + file_ext)))
@@ -107,7 +109,7 @@ class EvalDataset(Dataset):
                                                          self.output_shape,
                                                          pre=True)
             for key in ['image', 'warped_image']:
-                sample[key+'_scale'] =self.get_scale(sample[key].shape[1,0],return_inverse=True)
+                sample[key+'_scale'] =self.get_scale(sample[key].shape[:2][::-1],return_inverse=True)
                 sample[key] = cv2.resize(sample[key], self.output_shape)
                 if self.use_color is False:
                     sample[key] = np.expand_dims(sample[key], axis=2)
@@ -126,3 +128,17 @@ class EvalDataset(Dataset):
             else:
                 img_scale_H=np.diag(np.append(img_scale_H,1.))
         return img_scale_H
+
+if __name__=="__main__":
+    dataset_path=r'/home/chiebotgpuhq/MyCode/python/pytorch/KP2D/data/datasets/kp2d/HPatches'
+    eval_dataset=EvalDataset(dataset_path,True,output_shape=(640,480))
+    from torch.utils.data import DataLoader
+    data_loader = DataLoader(eval_dataset,
+                                batch_size=0,
+                                pin_memory=False,
+                                shuffle=False,
+                                num_workers=1,
+                                worker_init_fn=None,
+                                sampler=None)
+    for sample in data_loader:
+        import ipdb; ipdb.set_trace()

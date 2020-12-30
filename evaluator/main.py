@@ -11,6 +11,7 @@ import context
 
 import numpy as np
 import cv2
+from tqdm import tqdm
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
@@ -18,18 +19,19 @@ from torch.utils.data import DataLoader
 from infer_demo import KeyPointModel,Homographier
 from kp2d.utils.image import to_color_normalized
 from kp2d.evaluation.descriptor_evaluation import select_k_best
-from .dataset import EvalDataset
+from dataset import EvalDataset
+
+from ipdb import set_trace
 
 def parse_args():
     """Parse arguments for training script"""
     parser = argparse.ArgumentParser(description='keypoint eval')
     parser.add_argument('--file', default=r'/home/chiebotgpuhq/MyCode/python/pytorch/KP2D/data/models/kp2d/v4.ckpt',
     type=str, help='Input file (.ckpt or .yaml)')
-    parser.add_argument('--dataset',default=r'',
+    parser.add_argument('--dataset',default=r'/home/chiebotgpuhq/MyCode/python/pytorch/KP2D/data/datasets/kp2d/HPatches',
     type=str)
     parser.add_argument('--out_size',default=(640,480),type=tuple,)
-    #parser.add_argument('--launcher',choices=['none','pytorch'],default='none',help='job launcher')
-    parser.add_argument('--k',default=5,type=int)
+    parser.add_argument('--k',default=5,type=int,help='用来控制各项指标的阈值,一般是1,3,5')
     args = parser.parse_args()
     return args
 
@@ -48,8 +50,9 @@ class CVKPDetector(object):
     def get_kp(self,img):
         if img.shape[-1] ==3:
             img= cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        kp,desc=self.detector.detectAndCompute(img)
-        return kp,desc
+        kps,desc=self.detector.detectAndCompute(img,None)
+        kps=np.array([list(kp.pt) for kp in kps])
+        return kps,desc
 
     def __call__(self,src,warp_src):
         kp,desc=self.get_kp(src)
@@ -113,7 +116,7 @@ def transform_kp(points,H):
     '''
     points=np.insert(points,2,1,axis=1)
     new_points=points@H.T
-    return new_points[:,:2]/new_points[:,-1]
+    return new_points[:,:2]/new_points[:,2:]
 
 def filter_keypoints(points, shape) -> tuple:
     """ Keep only the points whose coordinates are inside the dimensions of shape. """
@@ -173,7 +176,7 @@ def compute_M_score(kp1,disc1,kp2,disc2,gt_H,out_shape,dis_thr=3):
         作为分数,然后反过来将kp1映射到kp2再计算一遍,两个分数平均作为最终分数.
     '''
     bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
-    matcher=bf.matcher(disc1,disc2)
+    matcher=bf.match(disc1,disc2)
     matches_idx = np.array([m.queryIdx for m in matcher])
     m_keypoints = kp1[matches_idx, :]
     matches_idx = np.array([m.trainIdx for m in matcher])
@@ -186,7 +189,7 @@ def compute_M_score(kp1,disc1,kp2,disc2,gt_H,out_shape,dis_thr=3):
     count1 = np.sum(correct1 * vis_warped)
     score1 = count1 / np.maximum(np.sum(vis_warped), 1.0)
 
-    matcher=bf.matcher(disc2,disc1)
+    matcher=bf.match(disc2,disc1)
     matches_idx = np.array([m.queryIdx for m in matcher])
     m_warped_keypoints = kp2[matches_idx, :]
     matches_idx = np.array([m.trainIdx for m in matcher])
@@ -203,44 +206,70 @@ def compute_M_score(kp1,disc1,kp2,disc2,gt_H,out_shape,dis_thr=3):
 
     return ms
 
+def compute_H_MSE(gt_H,pre_H):
+    return np.linalg.norm(gt_H-pre_H)
+
+# TODO:计算指标部分没有并发加速,计算龟速,可以改
 def main(args):
     eval_dataset=EvalDataset(args.dataset,True,output_shape=args.out_size)
     data_loader = DataLoader(eval_dataset,
                                 batch_size=1,
                                 pin_memory=False,
                                 shuffle=False,
-                                num_workers=8,
+                                num_workers=1,
                                 worker_init_fn=None,
                                 sampler=None)
 
     td_kp_detec_params=[('orb',{'nfeatures':1000}),('sift',{'nfeatures':1000}),('akaze',None)]    
     td_kp_detector={x[0]:CVKPDetector(*x) for x in td_kp_detec_params}
 
-    kp_net=KPNet(ckpt=args.file)
+    kp_net=KPNet(ckpt_path=args.file)
     matcher=Homographier()
 
     evaluate_result=defaultdict(dict)
+    print('开始收集计算所有图片的结果')
     with torch.no_grad():
-        for i,sample in data_loader:
+        for sample in tqdm(data_loader,total=len(data_loader)):
             kps_info=dict()
             kp1,desc1,kp2,desc2=kp_net(sample['image_t'],sample['warped_image_t'])
             H=matcher(kp1,desc1,kp2,desc2)
             kps_info['kp_net']=(kp1,desc1,kp2,desc2,H)
+            sample['homography']=sample['homography'].squeeze().numpy()
             for name,detector in td_kp_detector.items():
-                kp1,desc1,kp2,desc2=detector(sample['image'],sample['warped_image'])
+                # NOTE: 这里被DataLoader摆了一道,sample里面变成tensor了,后面改
+                kp1,desc1,kp2,desc2=detector(sample['image'].squeeze().numpy(),sample['warped_image'].squeeze().numpy())
                 H=matcher(kp1,desc1,kp2,desc2)
                 kps_info[name]=(kp1,desc1,kp2,desc2,H)
 
             for detec_name,kp_info in kps_info.items():
                 _,_,rep,loc_err=compute_repeatability(kp_info[0],kp_info[2],
-                            sample['homography'],args.out_size,distance_thresh=3)
-                evaluate_result[detec_name].set_default('rep',[]).append(rep)
-                evaluate_result[detec_name].set_default('loc_err',[]).append(loc_err)
+                            sample['homography'],args.out_size,distance_thresh=args.k)
+                evaluate_result[detec_name].setdefault('rep',[]).append(rep)
+                evaluate_result[detec_name].setdefault('loc_err',[]).append(loc_err)
 
                 # 计算 cor-k
                 cor_k=compute_cor_k(args.out_size,sample['homography'],kp_info[4],args.k)
-                evaluate_result[detec_name].set_default('cor_k',[]).append(cor_k)
+                evaluate_result[detec_name].setdefault('cor_k',[]).append(cor_k)
 
                 # 计算匹配分数
-                M_score=compute_M_score(*kp_info[:4],sample['homography'],args.out_size,dis_thr=5)
-                evaluate_result[detec_name].set_default('M_score',[]).append(M_score)
+                M_score=compute_M_score(*kp_info[:4],sample['homography'],args.out_size,dis_thr=args.k)
+                evaluate_result[detec_name].setdefault('M_score',[]).append(M_score)
+
+                # 计算H矩阵的欧式距离
+                distance_H=compute_H_MSE(sample['homography'],kp_info[-1])
+                evaluate_result[detec_name].setdefault('dis_H',[]).append(distance_H)
+        
+        print('开始汇总计算所有结果的平均值')
+        for detec_name,result in evaluate_result.items():
+            print("=========================================")
+            print("{} result".format(detec_name))
+            for name,value in result.items():
+                print('{}:{}'.format(name,np.mean(value)))
+
+        print("=========================================")
+        
+
+if __name__ == '__main__':
+    args=parse_args()
+    print(args)
+    main(args)
