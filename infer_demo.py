@@ -35,7 +35,6 @@ class KeyPointModel(object):
         print('KeypointNet params {}'.format(model_args))
         self.keypoint_net.training = False
 
-
         self.eval_params=dict(res=(640,480),top_k=keep_k_points)
 
         self.conf_threshold = conf_thresh
@@ -130,7 +129,7 @@ class KeyPointModel(object):
 
 class Homographier(object):
     def __init__(self,):
-        self.matcher=cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
+        self.matcher=cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
 
     def __call__(self,kp_1,desc1,kp_2,desc2):
         """

@@ -29,6 +29,7 @@ def parse_args():
     type=str)
     parser.add_argument('--out_size',default=(640,480),type=tuple,)
     #parser.add_argument('--launcher',choices=['none','pytorch'],default='none',help='job launcher')
+    parser.add_argument('--k',default=5,type=int)
     args = parser.parse_args()
     return args
 
@@ -114,16 +115,17 @@ def transform_kp(points,H):
     new_points=points@H.T
     return new_points[:,:2]/new_points[:,-1]
 
-def filter_keypoints(points, shape):
+def filter_keypoints(points, shape) -> tuple:
     """ Keep only the points whose coordinates are inside the dimensions of shape. """
     mask = (points[:, 0] >= 0) & (points[:, 0] < shape[0]) &\
             (points[:, 1] >= 0) & (points[:, 1] < shape[1])
-    return points[mask, :]
+    return points[mask, :],mask
 
 def compute_repeatability(kp1,kp2,gt_H,img_shape,distance_thresh=3):
+
     # 将kp1 变换到 kp2 的座标系
     kp2_gt=transform_kp(kp1[:,:2],gt_H)
-    kp2_gt=filter_keypoints(kp2_gt,img_shape)
+    kp2_gt,_=filter_keypoints(kp2_gt,img_shape)
 
     # 计算kp2和kp2_gt的一对一关系
     N1=kp2.shape[0]
@@ -155,6 +157,52 @@ def compute_repeatability(kp1,kp2,gt_H,img_shape,distance_thresh=3):
 
     return N1, N2, repeatability, loc_err
 
+def compute_cor_k(image_shape,gt_H,pre_H,k):
+    corners = np.array([[0, 0],
+                        [0, image_shape[1] - 1],
+                        [image_shape[0] - 1, 0],
+                        [image_shape[0] - 1, image_shape[1] - 1]])
+    gt_warp_corner=transform_kp(corners,gt_H)
+    warp_corner=transform_kp(corners,pre_H)
+    mean_dist = np.mean(np.linalg.norm(gt_warp_corner - warp_corner, axis=1))
+    correctness=float(mean_dist<=k)
+    return correctness
+
+def compute_M_score(kp1,disc1,kp2,disc2,gt_H,out_shape,dis_thr=3):
+    r'''将kp2映射到kp1座标系上,然后保留仅在图片上是点,计算两者距离差异.然后将小于阈值的点数目比上总点数
+        作为分数,然后反过来将kp1映射到kp2再计算一遍,两个分数平均作为最终分数.
+    '''
+    bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+    matcher=bf.matcher(disc1,disc2)
+    matches_idx = np.array([m.queryIdx for m in matcher])
+    m_keypoints = kp1[matches_idx, :]
+    matches_idx = np.array([m.trainIdx for m in matcher])
+    m_warped_keypoints = kp2[matches_idx, :]
+
+    gt_warped_kp=transform_kp(m_warped_keypoints,np.linalg.inv(gt_H))
+    vis_warped = np.all((gt_warped_kp >= 0) & (gt_warped_kp <= (np.array(out_shape)-1)), axis=-1)
+    norm1 = np.linalg.norm(gt_warped_kp - m_keypoints, axis=-1)
+    correct1 = (norm1 < dis_thr)
+    count1 = np.sum(correct1 * vis_warped)
+    score1 = count1 / np.maximum(np.sum(vis_warped), 1.0)
+
+    matcher=bf.matcher(disc2,disc1)
+    matches_idx = np.array([m.queryIdx for m in matcher])
+    m_warped_keypoints = kp2[matches_idx, :]
+    matches_idx = np.array([m.trainIdx for m in matcher])
+    m_keypoints = kp1[matches_idx, :]
+
+    gt_kp=transform_kp(m_keypoints,gt_H)
+    vis = np.all((gt_kp >= 0) & (gt_kp <= (np.array(out_shape)-1)), axis=-1)
+    norm2=np.linalg.norm(gt_kp-m_warped_keypoints,axis=-1)
+    correct2 = (norm2<dis_thr)
+    count2=np.sum(correct2*vis)
+    score2 = count2 / np.maximum(np.sum(vis), 1.0)
+
+    ms=(score1+score2)/2
+
+    return ms
+
 def main(args):
     eval_dataset=EvalDataset(args.dataset,True,output_shape=args.out_size)
     data_loader = DataLoader(eval_dataset,
@@ -176,10 +224,12 @@ def main(args):
         for i,sample in data_loader:
             kps_info=dict()
             kp1,desc1,kp2,desc2=kp_net(sample['image_t'],sample['warped_image_t'])
-            kps_info['kp_net']=(kp1,desc1,kp2,desc2)
+            H=matcher(kp1,desc1,kp2,desc2)
+            kps_info['kp_net']=(kp1,desc1,kp2,desc2,H)
             for name,detector in td_kp_detector.items():
                 kp1,desc1,kp2,desc2=detector(sample['image'],sample['warped_image'])
-                kps_info[name]=(kp1,desc1,kp2,desc2)
+                H=matcher(kp1,desc1,kp2,desc2)
+                kps_info[name]=(kp1,desc1,kp2,desc2,H)
 
             for detec_name,kp_info in kps_info.items():
                 _,_,rep,loc_err=compute_repeatability(kp_info[0],kp_info[2],
@@ -188,3 +238,9 @@ def main(args):
                 evaluate_result[detec_name].set_default('loc_err',[]).append(loc_err)
 
                 # 计算 cor-k
+                cor_k=compute_cor_k(args.out_size,sample['homography'],kp_info[4],args.k)
+                evaluate_result[detec_name].set_default('cor_k',[]).append(cor_k)
+
+                # 计算匹配分数
+                M_score=compute_M_score(*kp_info[:4],sample['homography'],args.out_size,dis_thr=5)
+                evaluate_result[detec_name].set_default('M_score',[]).append(M_score)
