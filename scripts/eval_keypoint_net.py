@@ -58,7 +58,7 @@ def main():
                                  shuffle=False,
                                  num_workers=8,
                                  worker_init_fn=None,
-                                 sampler=None)
+                                 sampler=None) # type:ignore
 
         print(colored('Evaluating for {} -- top_k {}'.format(params['res'], params['top_k']),'green'))
         rep, loc, c1, c3, c5, mscore = evaluate_keypoint_net(

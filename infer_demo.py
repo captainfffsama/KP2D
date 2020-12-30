@@ -129,7 +129,7 @@ class KeyPointModel(object):
 
 class Homographier(object):
     def __init__(self,):
-        self.matcher=cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
+        self.matcher=cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
 
     def __call__(self,kp_1,desc1,kp_2,desc2):
         """
