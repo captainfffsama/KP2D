@@ -59,7 +59,7 @@ class EvalDataset(Dataset):
             if self.type == 'v' and path.stem[0] != 'v':
                 continue
             num_images = 5
-            file_ext = '.ppm'
+            file_ext = '.jpg'
             for i in range(2, 2 + num_images):
                 image_paths.append(str(Path(path, "1" + file_ext)))
                 warped_image_paths.append(str(Path(path, str(i) + file_ext)))
@@ -93,7 +93,7 @@ class EvalDataset(Dataset):
 
         warped_image = _read_image(self.files['warped_image_paths'][idx])
         homography = np.array(self.files['homography'][idx])
-        sample = {'image': image, 'warped_image': warped_image, 'homography': homography, 'index' : idx}
+        sample = {'image': image, 'warped_image': warped_image, 'homography': homography, 'index' : idx,'w_img_path':self.files['warped_image_paths'][idx]}
 
         # Apply transformations
         '''

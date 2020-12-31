@@ -119,7 +119,7 @@ class KeyPointModel(object):
 
 class Homographier(object):
     def __init__(self,):
-        self.matcher=cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
+        self.matcher=cv2.BFMatcher(cv2.NORM_L2)
 
     def __call__(self,kp_1,desc1,kp_2,desc2):
         """
@@ -127,6 +127,8 @@ class Homographier(object):
                 kp_1: numpy.ndarray
                     (N,2)
         """
+        if desc1.shape[0]<4 and desc2.shape[0]<4:
+            return np.array([[1,0,0],[0,1,0],[0,0,1]])
         matches = self.matcher.match(desc1,desc2)
 
         matches_idx = np.array([m.queryIdx for m in matches])
@@ -135,6 +137,8 @@ class Homographier(object):
         m_warped_keypoints = kp_2[matches_idx, :]
         H, _ = cv2.findHomography(m_keypoints[:, :2],
                                 m_warped_keypoints[:, :2], cv2.RANSAC, 3, maxIters=5000)
+        if H is None:
+            return np.array([[1,0,0],[0,1,0],[0,0,1]])
         return H
 
 if __name__ == '__main__':

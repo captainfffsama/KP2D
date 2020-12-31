@@ -140,7 +140,7 @@ def compute_repeatability(kp1,kp2,gt_H,img_shape,distance_thresh=3):
         correct2 = (min2 <= distance_thresh)
         count2 = np.sum(correct2)
         le2 = min2[correct2].sum()
-    if N1 + N2 > 0:
+    if N1 + N2 > 0 and count1 + count2 >0:
         repeatability = (count1 + count2) / (N1 + N2)
         loc_err = (le1 + le2) / (count1 + count2)
     else:
@@ -209,7 +209,8 @@ def main(args):
                                 worker_init_fn=None,
                                 sampler=None) #type:ignore
 
-    td_kp_detec_params=[('orb',{'nfeatures':1000}),('sift',{'nfeatures':1000}),('akaze',None)]    
+    #td_kp_detec_params=[('orb',{'nfeatures':1000}),('sift',{'nfeatures':1000})]    
+    td_kp_detec_params=[]
     td_kp_detector={x[0]:CVKPDetector(*x) for x in td_kp_detec_params}
 
     kp_net=KPNet(ckpt_path=args.file)
@@ -221,7 +222,10 @@ def main(args):
         for sample in tqdm(data_loader,total=len(data_loader)):
             kps_info=dict()
             kp1,desc1,kp2,desc2=kp_net(sample['image_t'],sample['warped_image_t'])
-            H=matcher(kp1,desc1,kp2,desc2)
+            try:
+                H=matcher(kp1,desc1,kp2,desc2)
+            except:
+                set_trace()
             kps_info['kp_net']=(kp1,desc1,kp2,desc2,H)
             sample['homography']=sample['homography'].squeeze().numpy()
             for name,detector in td_kp_detector.items():
@@ -231,8 +235,11 @@ def main(args):
                 kps_info[name]=(kp1,desc1,kp2,desc2,H)
 
             for detec_name,kp_info in kps_info.items():
-                _,_,rep,loc_err=compute_repeatability(kp_info[0],kp_info[2],
-                            sample['homography'],args.out_size,distance_thresh=args.k)
+                try:
+                    _,_,rep,loc_err=compute_repeatability(kp_info[0],kp_info[2],
+                                sample['homography'],args.out_size,distance_thresh=args.k)
+                except RuntimeWarning:
+                    set_trace()
                 evaluate_result[detec_name].setdefault('rep',[]).append(rep)
                 evaluate_result[detec_name].setdefault('loc_err',[]).append(loc_err)
 

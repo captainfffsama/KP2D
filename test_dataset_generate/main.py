@@ -23,7 +23,7 @@ def get_transform():
         A.OneOf([
                 A.RandomSnow(),
                 A.RandomRain(slant_lower=-10, slant_upper=10, drop_width=1, drop_color=(225, 198, 203), blur_value=2, brightness_coefficient=0.95, rain_type=None,p=0.5),
-                A.RandomFog(always_apply=False, p=0.3, fog_coef_lower=0.3, fog_coef_upper=0.78, alpha_coef=0.08)
+                A.RandomFog(always_apply=False, p=0.1, fog_coef_lower=0.3, fog_coef_upper=0.78, alpha_coef=0.08)
             ],p=0.7),
         A.OneOf([
             A.RandomBrightnessContrast(always_apply=False, p=0.8, brightness_limit=(-0.36, 0.39), contrast_limit=(-0.68, 0.56), brightness_by_max=True),
@@ -47,17 +47,18 @@ def get_all_jpg_path(file_dir:str,filter_:tuple=('.jpg',)) -> list:
         raise FileNotFoundError('{} have no image in {}'.format(file_dir,filter_))
 
 def generat_one_group(ori_img_path:str,transform):
+    size_n=cfg.size_rate
     ori_img=cv2.imread(ori_img_path,cv2.IMREAD_COLOR)
     ori_img_rgb=cv2.cvtColor(ori_img,cv2.COLOR_BGR2RGB)
     h,w=ori_img.shape[:-1]
-    if max(w/7,h/7) <= cfg.homo_range:
+    if max(w/size_n,h/size_n) <= cfg.homo_range:
         print('{} is too small,please change cfg.homo_range'.format(ori_img_path))
         return
 
-    ori_kp=(int(w/7),int(h/7),
-            int(w*6/7),int(h/7),
-            int(w/7),int(h*6/7),
-            int(w*6/7),int(h*6/7),)
+    ori_kp=(int(w/size_n),int(h/size_n),
+            int(w*(size_n-1)/size_n),int(h/size_n),
+            int(w/size_n),int(h*(size_n-1)/size_n),
+            int(w*(size_n-1)/size_n),int(h*(size_n-1)/size_n),)
 
     ori_kp=np.array(ori_kp,dtype="float32").reshape(4,2)
 
@@ -66,7 +67,7 @@ def generat_one_group(ori_img_path:str,transform):
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
 
-    cv2.imwrite(os.path.join(save_dir,'1.jpg'),img=ori_img[int(h/7):int(h*6/7),int(w/7):int(w*6/7)])
+    cv2.imwrite(os.path.join(save_dir,'1.jpg'),img=ori_img[int(h/size_n):int(h*(size_n-1)/size_n),int(w/size_n):int(w*(size_n-1)/size_n)])
 
     for idx in range(2,cfg.img_num_per_group+2):
         warp_img=transform(image=ori_img_rgb)['image']
