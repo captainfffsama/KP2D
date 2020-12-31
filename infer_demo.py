@@ -109,20 +109,10 @@ class KeyPointModel(object):
             prob1 = prob1[prob1[:, 2] > self.conf_threshold, :]
             prob2 = prob2[prob2[:, 2] > self.conf_threshold, :]
 
-            keypoints = prob1[:, :2].T
-            keypoints = keypoints[::-1]
-            prob = prob1[:, 2]
-            keypoints = np.stack([keypoints[0], keypoints[1], prob], axis=-1)
-
-            warped_keypoints = prob2[:, :2].T
-            warped_keypoints = warped_keypoints[::-1]
-            warped_prob = prob2[:, 2]
-            warped_keypoints = np.stack([warped_keypoints[0], warped_keypoints[1], warped_prob], axis=-1)
-            
             desc = desc1
             warped_desc = desc2
-            keypoints,desc = select_k_best(keypoints, desc, self.eval_params['top_k'])
-            warped_keypoints, warped_desc = select_k_best(warped_keypoints, warped_desc, self.eval_params['top_k'])
+            keypoints,desc = select_k_best(prob1, desc, self.eval_params['top_k'])
+            warped_keypoints, warped_desc = select_k_best(prob2, warped_desc, self.eval_params['top_k'])
             fix_kps=self.scale_point(keypoints[:,:2],img_t_scale_H)
             fix_wkps=self.scale_point(warped_keypoints[:,:2],warped_img_t_H)
         return fix_kps,desc,fix_wkps,warped_desc

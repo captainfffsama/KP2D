@@ -59,6 +59,8 @@ def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), to
             score_1 = score_1[score_1[:, 2] > conf_threshold, :]
             score_2 = score_2[score_2[:, 2] > conf_threshold, :]
 
+            #NOTE: 到此为止还是xy
+
             # Prepare data for eval
             data = {'image': sample['image'].numpy().squeeze(),
                     'image_shape' : output_shape[::-1],

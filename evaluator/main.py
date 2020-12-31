@@ -86,21 +86,11 @@ class KPNet(KeyPointModel):
             desc2 = desc2[prob2[:, 2] > self.conf_threshold, :]
             prob1 = prob1[prob1[:, 2] > self.conf_threshold, :]
             prob2 = prob2[prob2[:, 2] > self.conf_threshold, :]
-
-            keypoints = prob1[:, :2].T
-            keypoints = keypoints[::-1]
-            prob = prob1[:, 2]
-            keypoints = np.stack([keypoints[0], keypoints[1], prob], axis=-1)
-
-            warped_keypoints = prob2[:, :2].T
-            warped_keypoints = warped_keypoints[::-1]
-            warped_prob = prob2[:, 2]
-            warped_keypoints = np.stack([warped_keypoints[0], warped_keypoints[1], warped_prob], axis=-1)
             
             desc = desc1
             warped_desc = desc2
-            keypoints,desc = select_k_best(keypoints, desc, self.eval_params['top_k'])
-            warped_keypoints, warped_desc = select_k_best(warped_keypoints, warped_desc, self.eval_params['top_k'])
+            keypoints,desc = select_k_best(prob1, desc, self.eval_params['top_k'])
+            warped_keypoints, warped_desc = select_k_best(prob2, warped_desc, self.eval_params['top_k'])
         return keypoints, desc, warped_keypoints, warped_desc
 
 def transform_kp(points,H):
@@ -125,10 +115,6 @@ def filter_keypoints(points, shape) -> tuple:
     return points[mask, :],mask
 
 def compute_repeatability(kp1,kp2,gt_H,img_shape,distance_thresh=3):
-
-    # FIXME: TEST
-    distance_thresh=3
-
     # 将kp1 变换到 kp2 的座标系
     kp2_gt=transform_kp(kp1[:,:2],gt_H)
     kp2_gt,_=filter_keypoints(kp2_gt,img_shape)
@@ -178,8 +164,6 @@ def compute_M_score(kp1,disc1,kp2,disc2,gt_H,out_shape,dis_thr=3):
     r'''将kp2映射到kp1座标系上,然后保留仅在图片上是点,计算两者距离差异.然后将小于阈值的点数目比上总点数
         作为分数,然后反过来将kp1映射到kp2再计算一遍,两个分数平均作为最终分数.
     '''
-    # FIXME: TEST
-    dis_thr=3
     bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=False)
     matcher=bf.match(disc1,disc2)
     matches_idx = np.array([m.queryIdx for m in matcher])
