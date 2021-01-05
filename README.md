@@ -2,8 +2,6 @@
 
 **This project just fork from https://github.com/TRI-ML/KP2D ,and remove docker and horovod rely. you can use conda test this code**   
 
-**更新代码和官方一致,目前xy反复调换问题官方修复了,并调换了loss比例,由于原始是用 hvd 做分布式训练,此次修改的代码成使用 ddp 暂未进行测试,代码请使用之前版本**
-
 change the `prefix` in the *environment.yaml*,then use 
 ```python
 conda env create -f environment.yaml
@@ -11,6 +9,15 @@ conda env create -f environment.yaml
 install conda environment.
 
 Code have been test in Ubuntu 18.04, GTX2070,CUDA 10.01
+
+## Requiement
+pytorch > 1.6
+opencv
+pillow
+yacs
+termcolor
+tqdm
+wandb
 
 ## Overview
 ![](media/imgs/diagram_architecture.png)

@@ -86,7 +86,7 @@ class PatchesDataset(Dataset):
 
         warped_image = _read_image(self.files['warped_image_paths'][idx])
         homography = np.array(self.files['homography'][idx])
-        sample = {'image': image, 'warped_image': warped_image, 'homography': homography, 'index' : idx}
+        sample = {'image': image, 'warped_image': warped_image, 'homography': homography, 'index' : idx,'img_path':self.files['image_paths'][idx]}
 
         # Apply transformations
         '''

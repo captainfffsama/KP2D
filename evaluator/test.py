@@ -9,22 +9,17 @@ import context
 
 import numpy as np
 
-def transform_kp(points,H):
-    r'''对kp进行单应性变化
+from evaluator.dataset import EvalDataset
+from evaluator.main import parse_args
 
-        Args:
-            points: np.ndarray
-                Kx2 的矩阵,会被拓展乘 Kx3 大小
-            H: np.ndarray
-                3x3 的单应性矩阵
-        Returns:
-            np.array: Kx2 大小的矩阵,变换之后的点集
-    '''
-    points=np.insert(points,2,1,axis=1)
-    new_points=points@H.T
-    return new_points[:,:2]/new_points[:,2:]
+from ipdb import set_trace
 
+def main(args):
+    eval_dataset=EvalDataset(args.dataset,True,output_shape=args.out_size)
+    for sample in eval_dataset:
+        set_trace() 
 
-def compute_H_MSE(gt_H,pre_H):
-    return np.linalg.norm(gt_H-pre_H)
+if __name__=="__main__":
+    args=parse_args()
+    main(args)
 

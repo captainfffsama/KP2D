@@ -10,6 +10,8 @@ import numpy as np
 
 from kp2d.utils.keypoints import warp_keypoints
 
+from test_tools import pdb_show_img
+
 
 def select_k_best(points, descriptors, k):
     """ 
@@ -218,6 +220,10 @@ def compute_homography(data, keep_k_points=1000):
     m_keypoints = keypoints[matches_idx, :]
     matches_idx = np.array([m.trainIdx for m in matches])
     m_warped_keypoints = warped_keypoints[matches_idx, :]
+
+    # NOTE:这里在训练初期.能match上的点可能不足4对
+    if m_keypoints.shape[0] <4 and m_warped_keypoints.shape[0] <4:
+        return 0,0,0
 
     # Estimate the homography between the matches using RANSAC
     H, _ = cv2.findHomography(m_keypoints, m_warped_keypoints, cv2.RANSAC, 3, maxIters=5000)

@@ -40,7 +40,7 @@ class EvalDataset(Dataset):
         v - viewpoint sequences
         all - all sequences
     """
-    def __init__(self, root_dir, use_color=True, data_transform=None, output_shape=None, type='all'):
+    def __init__(self, root_dir, use_color=True, data_transform=None, output_shape=None, type='all',ext='.ppm'):
 
         super().__init__()
         self.type = type
@@ -59,7 +59,7 @@ class EvalDataset(Dataset):
             if self.type == 'v' and path.stem[0] != 'v':
                 continue
             num_images = 5
-            file_ext = '.jpg'
+            file_ext = ext
             for i in range(2, 2 + num_images):
                 image_paths.append(str(Path(path, "1" + file_ext)))
                 warped_image_paths.append(str(Path(path, str(i) + file_ext)))

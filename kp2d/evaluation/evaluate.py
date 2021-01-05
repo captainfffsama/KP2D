@@ -69,7 +69,9 @@ def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), to
                     'prob': score_1, 
                     'warped_prob': score_2,
                     'desc': desc1,
-                    'warped_desc': desc2}
+                    'warped_desc': desc2,
+                    'path':sample['img_path']
+                    }
             
             # Compute repeatabilty and localization error
             _, _, rep, loc_err = compute_repeatability(data, keep_k_points=top_k, distance_thresh=3)
