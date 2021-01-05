@@ -186,8 +186,6 @@ def evaluation(config, completed_epoch, model, summary):
             print('Correctness d3 {:.3f}'.format(c3))
             print('Correctness d5 {:.3f}'.format(c5))
             print('MScore {:.3f}'.format(mscore))
-        if summary:
-            summary.commit_log()
 
     # Save checkpoint
     if config.model.save_checkpoint and rank == 0:
@@ -263,7 +261,6 @@ def train(config, train_loader, model, optimizer, epoch, summary):
                     model(data_cuda, debug=True)
                     for k, v in model_submodule(model).vis.items():
                         summary.add_image(k, v)
-                    summary.commit_log()
 
 
 if __name__ == '__main__':

@@ -73,9 +73,7 @@ def keep_shared_points(keypoints, descriptors, H, shape, keep_k_points=1000):
         """ Keep only the points whose warped coordinates by H are still inside shape. 
             使用gt的变换对点进行变化,把转出去的点去掉
         """
-        # TODO:这里的点xy交换很奇怪,按理来说不符合公式
-        warped_points = warp_keypoints(points[:, [1, 0]], H)
-        warped_points[:, [0, 1]] = warped_points[:, [1, 0]]
+        warped_points = warp_keypoints(points[:,:2], H)
         mask = (warped_points[:, 0] >= 0) & (warped_points[:, 0] < shape[0]) &\
                (warped_points[:, 1] >= 0) & (warped_points[:, 1] < shape[1])
         return points[mask, :], descriptors[mask, :]
@@ -118,16 +116,8 @@ def compute_matching_score(data, keep_k_points=1000):
     real_H = data['homography']
 
     # Filter out predictions
-    # 注意这里把x,y互换了
-    keypoints = data['prob'][:, :2].T
-    keypoints = keypoints[::-1]
-    prob = data['prob'][:, 2]
-    keypoints = np.stack([keypoints[0], keypoints[1], prob], axis=-1)
-
-    warped_keypoints = data['warped_prob'][:, :2].T
-    warped_keypoints = warped_keypoints[::-1]
-    warped_prob = data['warped_prob'][:, 2]
-    warped_keypoints = np.stack([warped_keypoints[0], warped_keypoints[1], warped_prob], axis=-1)
+    keypoints = data['prob']
+    warped_keypoints = data['warped_prob']
 
     desc = data['desc']
     warped_desc = data['warped_desc']
@@ -147,8 +137,7 @@ def compute_matching_score(data, keep_k_points=1000):
     matches_idx = np.array([m.trainIdx for m in matches])
     m_warped_keypoints = warped_keypoints[matches_idx, :]
 
-    true_warped_keypoints = warp_keypoints(m_warped_keypoints[:, [1, 0]], np.linalg.inv(real_H))[:,::-1]
-    #在图片范围内的点
+    true_warped_keypoints = warp_keypoints(m_warped_keypoints, np.linalg.inv(real_H))
     vis_warped = np.all((true_warped_keypoints >= 0) & (true_warped_keypoints <= (np.array(shape)-1)), axis=-1)
     #将预测点反变换回原始图片座标系中的点,然后计算两者距离
     norm1 = np.linalg.norm(true_warped_keypoints - m_keypoints, axis=-1)
@@ -164,7 +153,7 @@ def compute_matching_score(data, keep_k_points=1000):
     matches_idx = np.array([m.trainIdx for m in matches])
     m_keypoints = keypoints[matches_idx, :]
 
-    true_keypoints = warp_keypoints(m_keypoints[:, [1, 0]], real_H)[:,::-1]
+    true_keypoints = warp_keypoints(m_keypoints, real_H)
     vis = np.all((true_keypoints >= 0) & (true_keypoints <= (np.array(shape)-1)), axis=-1)
     norm2 = np.linalg.norm(true_keypoints - m_warped_keypoints, axis=-1)
 
@@ -212,16 +201,8 @@ def compute_homography(data, keep_k_points=1000):
     shape = data['image_shape']
     real_H = data['homography']
 
-    # Filter out predictions
-    keypoints = data['prob'][:, :2].T
-    keypoints = keypoints[::-1]
-    prob = data['prob'][:, 2]
-    keypoints = np.stack([keypoints[0], keypoints[1], prob], axis=-1)
-
-    warped_keypoints = data['warped_prob'][:, :2].T
-    warped_keypoints = warped_keypoints[::-1]
-    warped_prob = data['warped_prob'][:, 2]
-    warped_keypoints = np.stack([warped_keypoints[0], warped_keypoints[1], warped_prob], axis=-1)
+    keypoints = data['prob']
+    warped_keypoints = data['warped_prob']
 
     desc = data['desc']
     warped_desc = data['warped_desc']
@@ -239,13 +220,10 @@ def compute_homography(data, keep_k_points=1000):
     m_warped_keypoints = warped_keypoints[matches_idx, :]
 
     # Estimate the homography between the matches using RANSAC
-    H, _ = cv2.findHomography(m_keypoints[:, [1, 0]],
-                              m_warped_keypoints[:, [1, 0]], cv2.RANSAC, 3, maxIters=5000)
+    H, _ = cv2.findHomography(m_keypoints, m_warped_keypoints, cv2.RANSAC, 3, maxIters=5000)
 
     if H is None:
         return 0, 0, 0
-
-    shape = shape[::-1]
 
     # Compute correctness
     corners = np.array([[0, 0, 1],

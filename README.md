@@ -1,6 +1,9 @@
 # Neural Outlier Rejection for Self-Supervised Keypoint Learning
 
 **This project just fork from https://github.com/TRI-ML/KP2D ,and remove docker and horovod rely. you can use conda test this code**   
+
+**更新代码和官方一致,目前xy反复调换问题官方修复了,并调换了loss比例,由于原始是用 hvd 做分布式训练,此次修改的代码成使用 ddp 暂未进行测试,代码请使用之前版本**
+
 change the `prefix` in the *environment.yaml*,then use 
 ```python
 conda env create -f environment.yaml
@@ -18,7 +21,7 @@ Code have been test in Ubuntu 18.04, GTX2070,CUDA 10.01
 
 ### Setting up your environment
 
-You need a machine with recent Nvidia drivers and a GPU. We recommend using docker (see [nvidia-docker2](https://github.com/NVIDIA/nvidia-docker) instructions) to have a reproducible environment. To setup your environment, type in a terminal (only tested in Ubuntu 18.04):
+You need a machine with recent Nvidia drivers and a GPU. We recommend using docker (see [nvidia-docker2](https://github.com/NVIDIA/nvidia-docker) instructions) to have a reproducible environment. To setup your environment, type in a terminal (only tested in Ubuntu 18.04 and with Pytorch 1.6):
 
 ```bash
 git clone https://github.com/TRI-ML/KP2D.git
