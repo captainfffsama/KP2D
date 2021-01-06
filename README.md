@@ -29,6 +29,11 @@ termcolor
 tqdm  
 wandb  
 
+## Install kp2d 
+现在网络结构模块 kp2d可以独立安装了
+```bash
+pip install -e .
+```
 
 ### Data
 
