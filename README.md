@@ -1,6 +1,16 @@
 # Neural Outlier Rejection for Self-Supervised Keypoint Learning
 
 **This project just fork from https://github.com/TRI-ML/KP2D ,and remove docker and horovod rely. you can use conda test this code**   
+**本算法的配置文件在`./kp2d/configs/base_config.py`,使用之前请修改其中对于的数据集路径等**
+
+## Overview
+![diagram_architecture.png](https://dev.chiebot.com:10443/images/2021/01/06/diagram_architecture.png)
+- **IO-Net:** A novel proxy task for the self-supervision of keypoint description. 
+- **KeyPointNet:**  An improved keypoint-network architecture that is especially amenable to robust keypoint detection and description.
+
+[**[Full paper]**](https://openreview.net/pdf?id=Skx82ySYPH)
+
+### Setting up your environment
 
 change the `prefix` in the *environment.yaml*,then use 
 ```python
@@ -10,57 +20,15 @@ install conda environment.
 
 Code have been test in Ubuntu 18.04, GTX2070,CUDA 10.01
 
-## Requiement
-pytorch > 1.6
-opencv
-pillow
-yacs
-termcolor
-tqdm
-wandb
+#### Requiement
+pytorch > 1.6  
+opencv  
+pillow  
+yacs  
+termcolor  
+tqdm  
+wandb  
 
-## Overview
-![](media/imgs/diagram_architecture.png)
-- **IO-Net:** A novel proxy task for the self-supervision of keypoint description. 
-- **KeyPointNet:**  An improved keypoint-network architecture that is especially amenable to robust keypoint detection and description.
-
-[**[Full paper]**](https://openreview.net/pdf?id=Skx82ySYPH)
-
-### Setting up your environment
-
-You need a machine with recent Nvidia drivers and a GPU. We recommend using docker (see [nvidia-docker2](https://github.com/NVIDIA/nvidia-docker) instructions) to have a reproducible environment. To setup your environment, type in a terminal (only tested in Ubuntu 18.04 and with Pytorch 1.6):
-
-```bash
-git clone https://github.com/TRI-ML/KP2D.git
-cd KP2D
-# if you want to use docker (recommended)
-make docker-build
-```
-
-We will list below all commands as if run directly inside our container. To run any of the commands in a container, you can either start the container in interactive mode with `make docker-start` to land in a shell where you can type those commands, or you can do it in one step:
-
-```bash
-# single GPU
-make docker-run COMMAND="some-command"
-# multi-GPU
-make docker-run-mpi COMMAND="some-command"
-```
-
-If you want to use features related to [Weights & Biases (WANDB)](https://www.wandb.com/) (for experiment management/visualization), then you should create associated accounts and configure your shell with the following environment variables:
-
-export WANDB_ENTITY="something"
-export WANDB_API_KEY="something"
-To enable WANDB logging and AWS checkpoint syncing, you can then set the corresponding configuration parameters in `configs/<your config>.yaml` (cf. [configs/base_config.py](configs/base_config.py) for defaults and docs):
-
-```
-wandb:
-    dry_run: True                                 # Wandb dry-run (not logging)
-    name: ''                                      # Wandb run name
-    project: os.environ.get("WANDB_PROJECT", "")  # Wandb project
-    entity: os.environ.get("WANDB_ENTITY", "")    # Wandb entity
-    tags: []                                      # Wandb tags
-    dir: ''                                       # Wandb save folder
-```
 
 ### Data
 
@@ -85,11 +53,10 @@ unzip train2017.zip
 To train a model run:
 
 ```bash
-make docker-run COMMAND="python scripts/train_keypoint_net.py kp2d/configs/v4.yaml"
+python scripts/train_keypoint_net.py kp2d/configs/v4.yaml
 ```
 
-To train on multiple GPUs, simply replace `docker-run` with `docker-run-mpi`. Note that we provide the `v0-v4.yaml` config files, one for each version of our model as presented in the ablative analysis of our paper. For evaluating the pre-trained models corresponding to each config file please see hte following section.
-
+以上训练是单卡的,多卡DDP的尚未测试.
 
 ### Pre-trained models:
 
@@ -98,7 +65,7 @@ Download the pre-trained models from [here](https://tri-ml-public.s3.amazonaws.c
 To evaluate any of the models, simply run:
 
 ```bash
-make docker-run COMMAND="python scripts/eval_keypoint_net.py --pretrained_model /data/models/kp2d/v4.ckpt --input /data/datasets/kp2d/HPatches/"
+python scripts/eval_keypoint_net.py --pretrained_model /data/models/kp2d/v4.ckpt --input /data/datasets/kp2d/HPatches/
 ```
 
 Evaluation for **`(320, 240)`**:
@@ -129,40 +96,38 @@ Evaluation for **`(640, 480)`**:
 
 These examples show the model over-fitting on single images. For each image, we show the original frame with detected keypoints (left), the score map (center) and the random crop used for training (right). As training progresses, the model learns to detect salient regions in the images.
 
-
 - **Toy example:**
 <p align="center">
-  <img src="media/gifs/v1.gif" alt="Target Frame" width="230" />
-  <img src="media/gifs/h1.gif" alt="Heatmap" width="230" />
-  <img src="media/gifs/w1.gif" alt="Source Frame" width="230" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/v1-min.gif" alt="Target Frame" width="230" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/h1-min.gif" alt="Heatmap" width="230" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/w1-min.gif" alt="Source Frame" width="230" />
 </p>
 
 - **TRI example:**
 <p align="center">
-  <img src="media/gifs/compressed_v2.gif" alt="Target Frame" width="230" />
-  <img src="media/gifs/compressed_h2.gif" alt="Heatmap" width="230" />
-  <img src="media/gifs/compressed_w2.gif" alt="Source Frame" width="230" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/05/compressed_v2.gif" alt="Target Frame" width="230" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/compressed_h2-min.gif" alt="Heatmap" width="230" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/compressed_w2-min.gif" alt="Source Frame" width="230" />
 </p>
 
 ### Qualatitive Results
-
 - **Illumination Cases:**
 
 <p align="center">
-  <img src="media/imgs/l1.png" alt="Illumination case(1)" width="600" />
-  <img src="media/imgs/l2.png" alt="Illumination case(2)" width="600" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/l1.png" alt="Illumination case(1)" width="600" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/l2.png" alt="Illumination case(2)" width="600" />
 </p>
 
 - **Perspective Cases:**
 <p align="center">
-  <img src="media/imgs/p1.png" alt="Perspective case(1)" width="600" />
-  <img src="media/imgs/p2.png" alt="Perspective case(2)" width="600" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/p1.png" alt="Perspective case(1)" width="600" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/p2.png" alt="Perspective case(2)" width="600" />
 </p>
 
 - **Rotation Cases:**
 <p align="center">
-  <img src="media/imgs/r1.png" alt="Rotation case(1)" width="600" />
-  <img src="media/imgs/r2.png" alt="Rotation case(2)" width="600" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/r1.png" alt="Rotation case(1)" width="600" />
+  <img src="https://dev.chiebot.com:10443/images/2021/01/06/r2.png" alt="Rotation case(2)" width="600" />
 </p>
 
 ### License
