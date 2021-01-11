@@ -236,6 +236,8 @@ class KeypointNetwithIOLoss(torch.nn.Module):
             input_img_aug = to_color_normalized(input_img_aug.clone())
 
             # Get network outputs
+            # NOTE: 注意这里输出的desc 描述符大小应该是未降采样的
+            # 最终输出的特征图大小是80*60,而描述符大小是160*120
             source_score, source_uv_pred, source_feat = self.keypoint_net(input_img_aug)
             target_score, target_uv_pred, target_feat = self.keypoint_net(input_img)
             _, _, Hc, Wc = target_score.shape

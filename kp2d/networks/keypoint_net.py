@@ -145,6 +145,7 @@ class KeypointNet(torch.nn.Module):
         center_shift = self.convPb(center_shift).tanh()
 
         step = (self.cell-1) / 2.
+        # QUE:为何这里step是3.5?
         center_base = image_grid(B, Hc, Wc,
                                  dtype=center_shift.dtype,
                                  device=center_shift.device,
@@ -165,11 +166,13 @@ class KeypointNet(torch.nn.Module):
         feat = self.convFbb(feat)
 
         if self.training is False:
-            coord_norm = coord[:, :2].clone()
+            coord_norm = coord[:, :2].clone() # 写coord应该也行
+            # 输出的是xy座标
             coord_norm[:, 0] = (coord_norm[:, 0] / (float(W-1)/2.)) - 1.
             coord_norm[:, 1] = (coord_norm[:, 1] / (float(H-1)/2.)) - 1.
             coord_norm = coord_norm.permute(0, 2, 3, 1)
 
+            # 这里feat上采样过了 输出的特征图大小是不对的,这里使用coord_norm对其进行采样变换原始的大小
             feat = torch.nn.functional.grid_sample(feat, coord_norm, align_corners=True)
 
             dn = torch.norm(feat, p=2, dim=1)  # Compute the norm.
