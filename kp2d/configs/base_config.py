@@ -64,14 +64,14 @@ cfg.datasets = CN()
 ### DATASETS.AUGMENTATION
 ########################################################################################################################
 cfg.datasets.augmentation = CN()
-cfg.datasets.augmentation.image_shape = (240, 320)              # Image shape
+cfg.datasets.augmentation.image_shape = (240,320)              # Image shape
 cfg.datasets.augmentation.jittering = (0.5, 0.5, 0.2, 0.05)     # Color jittering values
 ########################################################################################################################
 ### DATASETS.TRAIN
 ########################################################################################################################
 cfg.datasets.train = CN()
-cfg.datasets.train.batch_size = 8                                      # Training batch size
-cfg.datasets.train.num_workers = 16                                    # Training number of workers
+cfg.datasets.train.batch_size = 1                                      # Training batch size
+cfg.datasets.train.num_workers = 1                                    # Training number of work
 cfg.datasets.train.path = '/home/gpu-server/disk/ssd1/data/HPatch/test/'        # Training data path (COCO dataset)
 cfg.datasets.train.repeat = 1                                          # Number of times training dataset is repeated per epoch
 ########################################################################################################################
