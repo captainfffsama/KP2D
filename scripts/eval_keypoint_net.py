@@ -52,9 +52,6 @@ def main():
     for params in eval_params:
         hp_dataset = PatchesDataset(root_dir=args.input_dir, use_color=True,
                                     output_shape=params['res'], type='a')
-        for sample in hp_dataset:
-            pass
-        import ipdb; ipdb.set_trace()
         data_loader = DataLoader(hp_dataset,
                                  batch_size=1,
                                  pin_memory=False,

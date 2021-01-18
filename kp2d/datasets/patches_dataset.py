@@ -97,13 +97,10 @@ class PatchesDataset(Dataset):
                                                          sample['image'].shape[:2][::-1],
                                                          self.output_shape,
                                                          pre=False)
-            try:
-                sample['homography'] = self.scale_homography(sample['homography'],
-                                                            sample['warped_image'].shape[:2][::-1],
-                                                            self.output_shape,
-                                                            pre=True)
-            except Exception as e:
-                __import__('ipdb').set_trace()
+            sample['homography'] = self.scale_homography(sample['homography'],
+                                                        sample['warped_image'].shape[:2][::-1],
+                                                        self.output_shape,
+                                                        pre=True)
             for key in ['image', 'warped_image']:
                 sample[key] = cv2.resize(sample[key], self.output_shape)
                 if self.use_color is False:
