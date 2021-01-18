@@ -102,7 +102,8 @@ def main(args):
     printcolor('({}) length: {}'.format("Train", len(train_dataset)))
 
     if distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model.cuda(),device_ids=[args.local_rank,])
+        model = torch.nn.parallel.DistributedDataParallel(model.cuda(),device_ids=[args.local_rank,],output_device=args.local_rank)
+        model =model.module
     else:
         model = model.cuda()
     optimizer = optim.Adam(model.optim_params)
