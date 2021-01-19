@@ -86,7 +86,7 @@ class PatchesDataset(Dataset):
 
         warped_image = _read_image(self.files['warped_image_paths'][idx])
         homography = np.array(self.files['homography'][idx])
-        sample = {'image': image, 'warped_image': warped_image, 'homography': homography, 'index' : idx,'img_path':self.files['image_paths'][idx]}
+        sample = {'image': image, 'warped_image': warped_image, 'homography': homography, 'index' : idx,'img_path':self.files['image_paths'][idx],'w_img_path':self.files['warped_image_paths'][idx]}
 
         # Apply transformations
         '''
@@ -98,10 +98,9 @@ class PatchesDataset(Dataset):
                                                          self.output_shape,
                                                          pre=False)
             sample['homography'] = self.scale_homography(sample['homography'],
-                                                         sample['warped_image'].shape[:2][::-1],
-                                                         self.output_shape,
-                                                         pre=True)
-
+                                                        sample['warped_image'].shape[:2][::-1],
+                                                        self.output_shape,
+                                                        pre=True)
             for key in ['image', 'warped_image']:
                 sample[key] = cv2.resize(sample[key], self.output_shape)
                 if self.use_color is False:

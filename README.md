@@ -54,14 +54,7 @@ unzip train2017.zip
 ```
 
 ### Training
-
-To train a model run:
-
-```bash
-python scripts/train_keypoint_net.py kp2d/configs/v4.yaml
-```
-
-以上训练是单卡的,多卡DDP的尚未测试.
+参见 [训练指北](./docs/train_total.md)
 
 ### Pre-trained models:
 
@@ -151,3 +144,8 @@ booktitle={International Conference on Learning Representations},
 year={2020}
 }
 ```
+
+### TODO
+- [ ] 重头训练可能出现匹配点少于4的bug
+- [ ] 多卡训练测试时似乎是在单卡,会造成训练的负载不均
+- [ ] 优化 dataset,支持更多的数据集形式

@@ -45,8 +45,9 @@ def main():
     print('KeypointNet params {}'.format(model_args))
 
     eval_params = [
-        {'res': (320, 240), 'top_k': 300, }, 
-        {'res': (640, 480), 'top_k': 1000, } 
+        #{'res': (320, 240), 'top_k': 300,  }, 
+        #{'res': (640, 480), 'top_k': 1000, }, 
+        {'res': (960, 544), 'top_k': 3000, },
     ]
 
     for params in eval_params:

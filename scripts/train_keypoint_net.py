@@ -102,7 +102,8 @@ def main(args):
     printcolor('({}) length: {}'.format("Train", len(train_dataset)))
 
     if distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model.cuda(),device_ids=[args.local_rank,])
+        model = torch.nn.parallel.DistributedDataParallel(model.cuda(),device_ids=[args.local_rank,],output_device=args.local_rank)
+        model =model.module
     else:
         model = model.cuda()
     optimizer = optim.Adam(model.optim_params)
@@ -153,7 +154,12 @@ def evaluation(config, completed_epoch, model, summary):
     rank,world_size=get_dist_info()
 
     if rank == 0:
-        eval_params = [{'res': (320, 240), 'top_k': 300}]
+        # NOTE: 这里只会在rank 0 的显卡上进行评价,在训练时似乎会出现之后负载不均衡
+        eval_params = [
+                {'res': (320, 240), 'top_k': 300},
+#                {'res': (960,720),  'top_k': 2000},
+                        #                {'res': (1980,1080),'top_k': 4000},
+        ]
         for params in eval_params:
             hp_dataset = PatchesDataset(root_dir=config.datasets.val.path, use_color=use_color, output_shape=params['res'], type='a')
 
