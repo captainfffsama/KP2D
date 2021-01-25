@@ -12,7 +12,6 @@ import numpy as np
 from evaluator.dataset import EvalDataset
 from evaluator.main import parse_args
 
-from ipdb import set_trace
 
 def main(args):
     eval_dataset=EvalDataset(args.dataset,True,output_shape=args.out_size)

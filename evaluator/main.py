@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 from infer_demo import KeyPointModel,Homographier
 from kp2d.utils.image import to_color_normalized
 from kp2d.evaluation.descriptor_evaluation import select_k_best
-from dataset import EvalDataset
+from dataset import EvalDataset,ChiebotTestDataset
 
 from ipdb import set_trace
 
@@ -117,7 +117,9 @@ def filter_keypoints(points, shape) -> tuple:
 def compute_repeatability(kp1,kp2,gt_H,img_shape,distance_thresh=3):
     # 将kp1 变换到 kp2 的座标系
     kp2_gt=transform_kp(kp1[:,:2],gt_H)
+    # FIXME: 这里会出现kp2_gt为空
     kp2_gt,_=filter_keypoints(kp2_gt,img_shape)
+    assert kp2_gt.size != 0
 
     # 计算kp2和kp2_gt的一对一关系
     N1=kp2.shape[0]
@@ -200,7 +202,7 @@ def compute_H_MSE(gt_H,pre_H):
 
 # TODO:计算指标部分没有并发加速,计算龟速,可以改
 def main(args):
-    eval_dataset=EvalDataset(args.dataset,True,output_shape=args.out_size)
+    eval_dataset=ChiebotTestDataset(args.dataset,True,output_shape=args.out_size)
     data_loader = DataLoader(eval_dataset,
                                 batch_size=1,
                                 pin_memory=False,
@@ -209,8 +211,8 @@ def main(args):
                                 worker_init_fn=None,
                                 sampler=None) #type:ignore
 
-    #td_kp_detec_params=[('orb',{'nfeatures':1000}),('sift',{'nfeatures':1000})]    
-    td_kp_detec_params=[]
+    td_kp_detec_params=[('orb',{'nfeatures':1000}),('sift',{'nfeatures':1000})]    
+ #   td_kp_detec_params=[]
     td_kp_detector={x[0]:CVKPDetector(*x) for x in td_kp_detec_params}
 
     kp_net=KPNet(ckpt_path=args.file)
@@ -238,8 +240,10 @@ def main(args):
                 try:
                     _,_,rep,loc_err=compute_repeatability(kp_info[0],kp_info[2],
                                 sample['homography'],args.out_size,distance_thresh=args.k)
-                except RuntimeWarning:
-                    set_trace()
+                except Exception as e:
+                    import ipdb; ipdb.set_trace()
+                    with open('./bug_img.list','a' ) as fw:
+                        fw.write(sample['w_img_path'][0]+'\n')
                 evaluate_result[detec_name].setdefault('rep',[]).append(rep)
                 evaluate_result[detec_name].setdefault('loc_err',[]).append(loc_err)
 

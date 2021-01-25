@@ -1,10 +1,16 @@
 # Copyright 2020 Toyota Research Institute.  All rights reserved.
 
+import os
 import glob
 
 from PIL import Image
 from torch.utils.data import Dataset
 
+def get_all_file_path(file_dir:str,filter_:tuple=('.jpg',)) -> list:
+    #遍历文件夹下所有的file
+    return [os.path.join(maindir,filename) for maindir,_,file_name_list in os.walk(file_dir) \
+            for filename in file_name_list \
+            if os.path.splitext(filename)[1] in filter_ ]
 
 class COCOLoader(Dataset):
     """
@@ -24,8 +30,13 @@ class COCOLoader(Dataset):
 
         self.files=[]
 
-        for filename in glob.glob(root_dir + '/*.jpg'):
-            self.files.append(filename)
+        if os.path.isdir(root_dir):
+            self.files=get_all_file_path(root_dir)
+        elif os.path.isfile(root_dir):
+            with open(root_dir, 'r') as fr:
+                self.files=[x.strip() for x in fr.readlines()]
+        else:
+            raise ValueError('训练数据集路径错误')
         self.data_transform = data_transform
 
     def __len__(self):

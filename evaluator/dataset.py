@@ -19,28 +19,28 @@ import torchvision.transforms as transforms
 
 class EvalDataset(Dataset):
     """
-    Eval dataset class.
-    Note: output_shape = (output_width, output_height)
-    Note: this returns Pytorch tensors, resized to output_shape (if specified)
-    Note: the homography will be adjusted according to output_shape.
+        Eval dataset class.
+        Note: output_shape = (output_width, output_height)
+        Note: this returns Pytorch tensors, resized to output_shape (if specified)
+        Note: the homography will be adjusted according to output_shape.
 
-    Parameters
-    ----------
-    root_dir : str
-        Path to the dataset
-    use_color : bool
-        Return color images or convert to grayscale.
-    data_transform : Function
-        Transformations applied to the sample
-    output_shape: tuple
-        If specified, the images and homographies will be resized to the desired shape.
-    type: str
-        Dataset subset to return from ['i', 'v', 'all']: 
-        i - illumination sequences
-        v - viewpoint sequences
-        all - all sequences
+        Parameters
+        ----------
+        root_dir : str
+            Path to the dataset
+        use_color : bool
+            Return color images or convert to grayscale.
+        data_transform : Function
+            Transformations applied to the sample
+        output_shape: tuple
+            If specified, the images and homographies will be resized to the desired shape.
+        type: str
+            Dataset subset to return from ['i', 'v', 'all']: 
+            i - illumination sequences
+            v - viewpoint sequences
+            all - all sequences
     """
-    def __init__(self, root_dir, use_color=True, data_transform=None, output_shape=None, type='all',ext='.ppm'):
+    def __init__(self, root_dir, use_color=True, data_transform=None, output_shape=None,ext='.ppm'):
 
         super().__init__()
         self.type = type
@@ -93,7 +93,7 @@ class EvalDataset(Dataset):
 
         warped_image = _read_image(self.files['warped_image_paths'][idx])
         homography = np.array(self.files['homography'][idx])
-        sample = {'image': image, 'warped_image': warped_image, 'homography': homography, 'index' : idx,'w_img_path':self.files['warped_image_paths'][idx]}
+        sample = {'image': image, 'warped_image': warped_image, 'ori_h':homography,'homography': homography, 'index' : idx,'w_img_path':self.files['warped_image_paths'][idx]}
 
         # Apply transformations
         '''
@@ -101,13 +101,13 @@ class EvalDataset(Dataset):
         '''
         if self.output_shape is not None:
             sample['homography'] = self.scale_homography(sample['homography'],
-                                                         sample['image'].shape[:2][::-1],
-                                                         self.output_shape,
-                                                         pre=False)
+                                                            sample['image'].shape[:2][::-1],
+                                                            self.output_shape,
+                                                            pre=False)
             sample['homography'] = self.scale_homography(sample['homography'],
-                                                         sample['warped_image'].shape[:2][::-1],
-                                                         self.output_shape,
-                                                         pre=True)
+                                                            sample['warped_image'].shape[:2][::-1],
+                                                            self.output_shape,
+                                                            pre=True)
             for key in ['image', 'warped_image']:
                 sample[key+'_scale'] =self.get_scale(sample[key].shape[:2][::-1],return_inverse=True)
                 sample[key] = cv2.resize(sample[key], self.output_shape)
@@ -118,7 +118,7 @@ class EvalDataset(Dataset):
         for key in ['image', 'warped_image']:
             sample[key+'_t'] = transform(sample[key]).type('torch.FloatTensor')
         return sample
-    
+
     def get_scale(self,ori_size,return_inverse=False):
         img_scale_H=np.eye(3)
         if ori_size !=self.output_shape:
@@ -129,16 +129,46 @@ class EvalDataset(Dataset):
                 img_scale_H=np.diag(np.append(img_scale_H,1.))
         return img_scale_H
 
+
+class ChiebotTestDataset(EvalDataset):
+    def __init__(self,root_dir,use_color=True,data_transform=None,output_shape=None):
+        super(Dataset,self).__init__()
+        self.type = type
+        self.root_dir = root_dir
+        self.data_transform = data_transform
+        self.output_shape = output_shape
+        self.use_color = use_color
+        base_path = Path(root_dir)
+        folder_paths = [x for x in base_path.iterdir() if x.is_dir()]
+        image_paths = []
+        warped_image_paths = []
+        homographies = []
+        for path in folder_paths:
+            image_paths.append(str(Path(path,"train.jpg")))
+            warped_image_paths.append(str(Path(path, "query.jpg")))
+            homographies.append(self.decode_np(str(Path(path, "H_T2QS_standard.txt"))))
+#            warped_image_paths.append(str(Path(path, "query_mini.jpg")))
+#            homographies.append(self.decode_np(str(Path(path, "H_T2QM_standard.txt"))))
+        self.files = {'image_paths': image_paths, 'warped_image_paths': warped_image_paths, 'homography': homographies}
+
+    def decode_np(self,txt_path):
+        with open(txt_path, 'r') as fr:
+            content=fr.read().strip()
+        m=np.fromstring(content,dtype=float,sep=',').reshape(3,3)
+        return m
+
+
 if __name__=="__main__":
-    dataset_path=r'/home/chiebotgpuhq/MyCode/python/pytorch/KP2D/data/datasets/kp2d/HPatches'
-    eval_dataset=EvalDataset(dataset_path,True,output_shape=(640,480))
+    dataset_path=r'/home/chiebotgpuhq/Share/qunhui_dataset/homography_dataset/chiebot_test/Saved_Match_Data_todelete/'
+    eval_dataset=ChiebotTestDataset(dataset_path,True,output_shape=(640,480))
     from torch.utils.data import DataLoader
     data_loader = DataLoader(eval_dataset,
-                                batch_size=0,
+                                batch_size=1,
                                 pin_memory=False,
                                 shuffle=False,
                                 num_workers=1,
                                 worker_init_fn=None,
                                 sampler=None)
-    for sample in data_loader:
-        import ipdb; ipdb.set_trace()
+    for idx,sample in enumerate(data_loader):
+        if idx==125:
+            import ipdb; ipdb.set_trace()
