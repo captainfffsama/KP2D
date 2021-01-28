@@ -15,6 +15,8 @@ from kp2d.networks.keypoint_net import KeypointNet
 from kp2d.utils.image import to_color_normalized
 from kp2d.evaluation.descriptor_evaluation import select_k_best
 
+import scripts.debug_tools as DT 
+
 # NOTE:注意这里KeyPointModel岁图片进行缩放了,而实际的算出来的H 应该缩放回去
 # H_o=S^(-1)_B H_{current} S_A
 # 这里若测试图片不是 resize大小  就需要变换回去

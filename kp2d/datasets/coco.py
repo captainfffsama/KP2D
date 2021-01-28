@@ -53,9 +53,9 @@ class COCOLoader(Dataset):
         if image.mode == 'L':
             image_new = Image.new("RGB", image.size)
             image_new.paste(image)
-            sample = {'image': image_new, 'idx': idx}
+            sample = {'image': image_new, 'idx': idx,'path': filename}
         else:
-            sample = {'image': image, 'idx': idx}
+            sample = {'image': image, 'idx': idx,'path':filename}
 
         if self.data_transform:
             sample = self.data_transform(sample)
